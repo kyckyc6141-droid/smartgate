@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>스마트 게이트 — 1인 기록 측정</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0a; --panel:#151515; --panel-2:#1c1c1c;
+    --border:#2a2a2a; --border-dim:#202020;
+    --led:#ff2d2d; --cyan:#38bdf8; --green:#22c55e; --amber:#f5b400; --violet:#a78bfa;
+    --text:#ece9e2; --text-dim:#8a8f8d; --text-faint:#55605c;
+    --ui:'Noto Sans KR',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; min-height:100vh; background:radial-gradient(ellipse at 50% -10%,#161616 0%,transparent 55%),linear-gradient(180deg,var(--bg) 0%,#060606 100%); color:var(--text); font-family:var(--ui); }
+  body{ display:flex; justify-content:center; padding:28px 16px 60px; }
+  .app{ width:100%; max-width:1000px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:14px; flex-wrap:wrap; gap:10px; }
+  h1{ font-family:var(--mono); font-weight:800; font-size:clamp(30px,6vw,46px); letter-spacing:2px; margin:0;
+      -webkit-text-stroke:0.7px currentColor; }
+  h1 span{ color:var(--cyan); }
+  .header-controls{ display:flex; align-items:center; gap:12px; }
+  .session-status{ font-family:var(--mono); font-size:11px; letter-spacing:1.5px; color:var(--text-faint); white-space:nowrap; }
+  .connect-btn.compact{ width:auto; padding:9px 18px; font-size:12.5px; }
+
+  .hero{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:58vh; padding:8px 10px 26px; gap:10px; border-bottom:1px solid var(--border); }
+  #timerDisplay{ font-size:clamp(70px,18vw,240px); line-height:1; margin:0; }
+  #stageText{ font-size:clamp(13px,2vw,16px); margin-bottom:6px; }
+  .hero .row{ width:100%; max-width:440px; margin-top:6px; }
+  .hero .icon-btn{ padding:15px 8px; font-size:14px; }
+
+  .source-bar{ display:flex; gap:8px; margin:18px 0 0; }
+  .source-btn{ flex:1; background:var(--panel); border:1px solid var(--border); color:var(--text-dim); font-family:var(--ui); font-weight:500; font-size:13px; padding:12px 6px; border-radius:6px; cursor:pointer; transition:all .15s ease; }
+  .source-btn:hover{ border-color:var(--text-dim); color:var(--text); }
+  .source-btn.active{ border-color:var(--cyan); color:var(--cyan); background:rgba(56,189,248,.08); }
+
+  .cam-section{ display:none; margin-top:14px; }
+  .cam-section.on{ display:block; }
+  .cam-wrap{ position:relative; width:100%; background:#000; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+  #camCanvas{ display:block; width:100%; height:auto; cursor:grab; touch-action:none; }
+  #camCanvas.dragging{ cursor:grabbing; }
+  .cam-placeholder{ display:flex; align-items:center; justify-content:center; min-height:200px; font-family:var(--mono); font-size:12px; color:var(--text-faint); text-align:center; padding:20px; line-height:1.8; }
+  .motion-track{ position:relative; height:10px; background:var(--panel-2); border-radius:5px; overflow:hidden; margin:10px 0 4px; border:1px solid var(--border-dim); }
+  .motion-fill{ position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--violet); transition:width .06s linear; }
+  .motion-mark{ position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--amber); }
+
+  .options-toggle{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; background:var(--panel); border:1px solid var(--border); color:var(--text-dim); font-family:var(--mono); font-size:11.5px; letter-spacing:1.5px; padding:13px; border-radius:6px; cursor:pointer; margin:18px 0 14px; transition:all .15s ease; }
+  .options-toggle:hover{ border-color:var(--cyan); color:var(--text); }
+  .options-toggle .chevron{ display:inline-block; transition:transform .25s ease; }
+  .options-toggle.open .chevron{ transform:rotate(180deg); }
+  .options-panel{ max-height:0; overflow:hidden; opacity:0; transition:max-height .35s ease,opacity .25s ease .05s; }
+  .options-panel.open{ max-height:2400px; opacity:1; }
+
+  .main-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:760px){ .main-grid{ grid-template-columns:1fr; } .hero{ min-height:48vh; } }
+
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:16px 16px 14px; }
+  .card-title{ font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text-faint); margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; }
+
+  .connect-btn{ width:100%; font-family:var(--ui); font-weight:700; font-size:15px; background:var(--cyan); color:#0a0a0a; border:none; padding:13px; border-radius:4px; cursor:pointer; transition:transform .12s ease,box-shadow .12s ease; }
+  .connect-btn:hover{ transform:translateY(-1px); box-shadow:0 4px 18px rgba(56,189,248,.3); }
+  .connect-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+  .connect-btn.connected{ background:var(--panel-2); border:1px solid var(--green); color:var(--green); }
+
+  .distance-num{ font-family:var(--mono); font-weight:800; font-size:40px; text-align:center; margin-bottom:6px; }
+  .distance-num .unit{ font-size:16px; color:var(--text-dim); font-weight:500; }
+  .gauge-track{ position:relative; height:16px; background:var(--panel-2); border-radius:8px; overflow:hidden; margin:10px 0 4px; border:1px solid var(--border-dim); }
+  .gauge-fill{ position:absolute; left:0; top:0; bottom:0; background:var(--green); width:0%; transition:width .08s linear,background .15s ease; }
+  .gauge-fill.broken{ background:var(--led); }
+  .gauge-caption{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--text-faint); }
+
+  .slider-row,.setting-row{ display:flex; flex-direction:column; gap:6px; margin-top:14px; }
+  .slider-row label,.setting-row label{ font-size:12.5px; color:var(--text-dim); display:flex; justify-content:space-between; font-family:var(--mono); }
+  input[type=range]{ width:100%; accent-color:var(--cyan); }
+  .note{ font-family:var(--mono); font-size:11px; color:var(--text-faint); line-height:1.7; margin-top:10px; }
+  .note b{ color:var(--text-dim); }
+
+  .timer-display{ font-family:var(--mono); font-weight:800; letter-spacing:1px; color:var(--green); text-align:center; text-shadow:0 0 18px rgba(34,197,94,.35); }
+  .timer-display.stopped{ color:var(--led); text-shadow:0 0 18px rgba(255,45,45,.35); }
+  .timer-display.idle{ color:#fff; text-shadow:none; }
+  .stage-text{ text-align:center; font-family:var(--mono); color:var(--text-dim); }
+  .row{ display:flex; gap:8px; }
+
+  .icon-btn{ flex:1; display:flex; align-items:center; justify-content:center; gap:7px; background:var(--panel-2); border:1px solid var(--border-dim); color:var(--text-dim); padding:10px 8px; border-radius:4px; cursor:pointer; font-family:var(--ui); font-weight:500; font-size:13px; transition:all .15s ease; }
+  .icon-btn:hover{ border-color:var(--cyan); color:var(--text); }
+  .icon-btn.muted{ border-color:var(--amber); color:var(--amber); background:rgba(245,180,0,.1); }
+  .icon-btn.primary{ border-color:var(--cyan); color:var(--cyan); }
+  .icon-btn.danger{ border-color:var(--led); color:var(--led); }
+
+  .notes{ margin-top:30px; padding-top:18px; border-top:1px solid var(--border); font-family:var(--mono); font-size:11px; line-height:1.9; color:var(--text-faint); }
+  .notes b{ color:var(--text-dim); }
+  .notes code{ background:var(--panel-2); padding:1px 5px; border-radius:3px; }
+
+  @keyframes flashPulse{ 0%{ box-shadow:0 0 0 0 rgba(56,189,248,.55);} 100%{ box-shadow:0 0 0 14px rgba(56,189,248,0);} }
+  .flash{ animation:flashPulse .5s ease-out; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>SMART <span>GATE</span></h1>
+    <div class="header-controls">
+      <span class="session-status" id="sessionState">DISCONNECTED</span>
+      <button class="connect-btn compact" id="connectBtn">Connect Bluetooth</button>
+    </div>
+  </header>
+
+  <div class="hero" id="heroTimer">
+    <div class="timer-display idle" id="timerDisplay">00:00.00</div>
+    <div class="stage-text" id="stageText">대기 중 — 감지되면 측정이 시작됩니다</div>
+    <div class="row">
+      <button class="icon-btn primary" id="manualBtn">수동 작동</button>
+      <button class="icon-btn" id="resetBtn">초기화</button>
+    </div>
+  </div>
+
+  <div class="source-bar">
+    <button class="source-btn active" id="srcSensor" data-mode="sensor">거리 센서</button>
+    <button class="source-btn" id="srcCamera" data-mode="camera">카메라</button>
+  </div>
+
+  <div class="cam-section" id="camSection">
+    <div class="card">
+      <div class="card-title">카메라 감지 <span id="camFps" style="letter-spacing:0; text-transform:none; font-weight:400;"></span></div>
+
+      <div class="cam-wrap">
+        <div class="cam-placeholder" id="camPlaceholder">
+          카메라가 꺼져 있습니다<br>아래 버튼을 눌러 시작하세요
+        </div>
+        <canvas id="camCanvas" width="320" height="240" style="display:none;"></canvas>
+      </div>
+
+      <div class="motion-track">
+        <div class="motion-fill" id="motionFill"></div>
+        <div class="motion-mark" id="motionMark" style="left:12%;"></div>
+      </div>
+      <div class="gauge-caption"><span>움직임 없음</span><span id="motionVal">0.0%</span></div>
+
+      <div class="row" style="margin-top:12px;">
+        <button class="icon-btn primary" id="camToggleBtn">카메라 켜기</button>
+        <button class="icon-btn" id="camSwitchBtn">전후면 전환</button>
+      </div>
+
+      <div class="slider-row">
+        <label>감지 민감도 <span id="camSensVal">12</span>%</label>
+        <input type="range" id="camSensSlider" min="2" max="50" step="1" value="12" />
+      </div>
+      <div class="slider-row">
+        <label>감지선 위치 <span id="camPosVal">50</span>%</label>
+        <input type="range" id="camPosSlider" min="10" max="90" step="1" value="50" />
+      </div>
+      <div class="slider-row">
+        <label>감지선 폭 <span id="camWidthVal">16</span>%</label>
+        <input type="range" id="camWidthSlider" min="4" max="60" step="1" value="16" />
+      </div>
+
+      <div class="note">
+        화면의 <b>세로 띠</b>를 사람이 가로지르면 감지됩니다.
+        띠는 <b>화면에서 직접 끌어</b> 옮길 수 있고, <b>양쪽 손잡이를 잡아당기면</b> 폭이 바뀝니다.
+        띠 바깥을 누르면 그 자리로 옮겨옵니다. 아래 슬라이더로도 같은 값을 맞출 수 있습니다.
+        막대가 노란 눈금을 넘으면 작동합니다. 사람이 없을 때 막대가 계속 흔들리면 민감도를 올리세요.<br><br>
+        <b>정밀도</b> — 카메라는 보통 초당 30프레임이라 오차가 ±17ms 수준입니다.
+        거리 센서(250Hz, ±2ms)보다 여덟 배 거칩니다. 센서를 못 쓰는 상황의 대안으로 쓰시고,
+        기록이 중요하면 거리 센서를 쓰세요.
+      </div>
+    </div>
+  </div>
+
+  <button class="options-toggle" id="optionsToggle">
+    <span id="optionsToggleLabel">설정 열기 — 감지 거리 · 음성 · 기록</span>
+    <span class="chevron">▾</span>
+  </button>
+
+  <div class="options-panel" id="optionsPanel">
+    <div class="main-grid">
+
+      <div class="card" id="distanceCard">
+        <div class="card-title">감지 이벤트 <span id="lastEventAgo" style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-faint);"></span></div>
+        <div class="distance-num" id="distanceNum">-- <span class="unit">mm</span></div>
+        <div class="gauge-track"><div class="gauge-fill" id="gaugeFill"></div></div>
+        <div class="gauge-caption"><span>0mm (가까움)</span><span id="rangeMax">2500mm (멂)</span></div>
+        <div class="slider-row">
+          <label>감지 거리 <span id="threshVal">1700</span> mm</label>
+          <input type="range" id="threshSlider" min="100" max="2500" step="50" value="1700" />
+        </div>
+        <div class="note">
+          이 기준값은 <b>아두이노에서 직접 판정</b>합니다. 슬라이더를 움직이면 즉시 센서로 전송됩니다.
+          표시되는 거리는 <b>감지 순간의 값</b>이며 실시간 스트림이 아닙니다.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">조작</div>
+        <div class="row">
+          <button class="icon-btn" id="muteBtn">음성 켜짐</button>
+        </div>
+        <div class="setting-row">
+          <label>재작동 대기 <span id="cooldownVal">250</span> ms</label>
+          <input type="range" id="cooldownSlider" min="0" max="2000" step="50" value="250" />
+        </div>
+        <div class="setting-row">
+          <label>음성 속도 <span id="rateVal">1.05</span>배</label>
+          <input type="range" id="rateSlider" min="0.8" max="1.4" step="0.05" value="1.05" />
+        </div>
+        <div class="note">사용 중인 음성: <span id="voiceName">확인 중…</span></div>
+      </div>
+
+      <div class="card" style="grid-column:1/-1;">
+        <div class="card-title">기록 <span id="lapCount" style="letter-spacing:0; text-transform:none; font-weight:400;"></span></div>
+        <div id="lapList" class="note" style="margin-top:0;">아직 기록이 없습니다.</div>
+        <div class="row" style="margin-top:12px;">
+          <button class="icon-btn" id="copyBtn">기록 복사</button>
+          <button class="icon-btn danger" id="clearBtn">기록 지우기</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // 아두이노 스케치와 반드시 일치해야 합니다
+  const SERVICE_UUID   = '19b10000-e8f2-537e-4f6c-d104768a1214';
+  const CHAR_UUID      = '19b10001-e8f2-537e-4f6c-d104768a1214';  // 거리 알림
+  const THRESHOLD_UUID = '19b10002-e8f2-537e-4f6c-d104768a1214';  // 기준값 쓰기
+  const RESET_UUID     = '19b10003-e8f2-537e-4f6c-d104768a1214';  // 초기화 명령
+  const EVENT_UUID     = '19b10004-e8f2-537e-4f6c-d104768a1214';  // 단계 + 장치 시각
+
+  const MAX_RANGE_MM = 2500;
+
+  let muted = false;
+  let cycleState = 0;        // 0 대기 / 1 측정중 / 2 정지
+  let startTime = 0;
+  let threshold = 1700;
+  let triggerCooldownMs = 250;
+  let lastTriggerAt = -1e9;
+  let lastEventAt = null;
+  let agoIntervalId = null;
+  let rafId = null;
+  let laps = [];
+
+  // 감지 소스: 'sensor' | 'camera'
+  let sourceMode = 'sensor';
+
+  // 장치가 EVENT_UUID를 제공하면 단계와 시각을 장치가 정합니다.
+  // 양쪽이 따로 세면 한 번만 놓쳐도 영영 어긋나기 때문에,
+  // 이 경우 화면은 세지 않고 장치를 따릅니다.
+  let usingDeviceEvents = false;
+  let deviceStartUs = null;
+  let lastSeq = null;
+
+  let bleDevice=null, bleServer=null, bleChar=null, bleThresholdChar=null, bleResetChar=null, bleEventChar=null;
+  let thresholdWriteTimer = null;
+
+  let ttsVoice = null, ttsRate = 1.05, speechWarmed = false;
+  let audioCtx = null;
+
+  const $ = id => document.getElementById(id);
+
+  const timerDisplay=$('timerDisplay'), stageText=$('stageText'), heroTimer=$('heroTimer');
+  const sessionState=$('sessionState'), connectBtn=$('connectBtn');
+  const manualBtn=$('manualBtn'), resetBtn=$('resetBtn'), muteBtn=$('muteBtn');
+  const distanceCard=$('distanceCard'), distanceNum=$('distanceNum'), gaugeFill=$('gaugeFill');
+  const rangeMax=$('rangeMax'), threshSlider=$('threshSlider'), threshVal=$('threshVal');
+  const cooldownSlider=$('cooldownSlider'), cooldownVal=$('cooldownVal');
+  const rateSlider=$('rateSlider'), rateVal=$('rateVal'), voiceNameEl=$('voiceName');
+  const optionsToggle=$('optionsToggle'), optionsPanel=$('optionsPanel'), optionsToggleLabel=$('optionsToggleLabel');
+  const lastEventAgo=$('lastEventAgo'), lapList=$('lapList'), lapCount=$('lapCount');
+  const copyBtn=$('copyBtn'), clearBtn=$('clearBtn');
+
+  const camSection=$('camSection'), camCanvas=$('camCanvas'), camPlaceholder=$('camPlaceholder');
+  const camToggleBtn=$('camToggleBtn'), camSwitchBtn=$('camSwitchBtn'), camFps=$('camFps');
+  const motionFill=$('motionFill'), motionMark=$('motionMark'), motionVal=$('motionVal');
+  const camSensSlider=$('camSensSlider'), camSensVal=$('camSensVal');
+  const camPosSlider=$('camPosSlider'), camPosVal=$('camPosVal');
+  const camWidthSlider=$('camWidthSlider'), camWidthVal=$('camWidthVal');
+
+  rangeMax.textContent = MAX_RANGE_MM + 'mm (멂)';
+
+  // ───────────────────────── 소리 ─────────────────────────
+  function ensureAudioCtx(){
+    if(audioCtx) return audioCtx;
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){}
+    return audioCtx;
+  }
+  function playBeep(freq=880, durMs=110){
+    const ctx = ensureAudioCtx();
+    if(!ctx) return;
+    if(ctx.state === 'suspended') ctx.resume();
+    try{
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type='sine'; osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime+0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+durMs/1000);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + durMs/1000 + 0.02);
+    }catch(e){}
+  }
+  function buzz(ms){ if(navigator.vibrate) try{ navigator.vibrate(ms); }catch(e){} }
+
+  // ───────────────────────── 음성 ─────────────────────────
+  function pickBestVoice(voices){
+    if(!voices || !voices.length) return null;
+    const en = voices.filter(v => /^en(-|_|$)/i.test(v.lang));
+    const pool = en.length ? en : voices;
+    const preferred = pool.find(v => /google|natural|neural|premium|enhanced/i.test(v.name));
+    return preferred || pool[0];
+  }
+  function refreshVoiceList(){
+    if(!('speechSynthesis' in window)){ voiceNameEl.textContent = '이 브라우저는 음성을 지원하지 않습니다'; return; }
+    const voices = window.speechSynthesis.getVoices();
+    const picked = pickBestVoice(voices);
+    if(picked && /^en/i.test(picked.lang)){
+      ttsVoice = picked; voiceNameEl.textContent = `${picked.name} (${picked.lang})`;
+    } else if(picked){
+      ttsVoice = picked; voiceNameEl.textContent = `${picked.name} — 영어 음성을 찾지 못했습니다`;
+    } else {
+      voiceNameEl.textContent = '확인 중…';
+    }
+  }
+  if('speechSynthesis' in window){
+    refreshVoiceList();
+    window.speechSynthesis.onvoiceschanged = refreshVoiceList;
+  }
+  function warmupSpeech(){
+    if(speechWarmed || !('speechSynthesis' in window)) return;
+    speechWarmed = true;
+    refreshVoiceList();
+    try{
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0; u.rate = 2;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  function speak(text){
+    if(muted || !('speechSynthesis' in window)) return;
+    try{
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang='en-US'; u.rate=ttsRate; u.pitch=1.0; u.volume=1.0;
+      if(ttsVoice) u.voice = ttsVoice;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  // ───────────────────────── 표시 ─────────────────────────
+  function formatTime(ms){
+    const total = Math.max(0, ms);
+    const m = Math.floor(total/60000);
+    const s = Math.floor((total%60000)/1000);
+    const cs = Math.floor((total%1000)/10);
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+  }
+  function flashCard(el){ if(!el) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+
+  function startSmoothTimer(){
+    stopSmoothTimer();
+    const tick = () => {
+      timerDisplay.textContent = formatTime(performance.now() - startTime);
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+  }
+  function stopSmoothTimer(){ if(rafId){ cancelAnimationFrame(rafId); rafId=null; } }
+
+  function setStage(stage){
+    cycleState = stage;
+    if(stage === 0){
+      timerDisplay.className='timer-display idle';
+      timerDisplay.textContent='00:00.00';
+      stageText.textContent='대기 중 — 감지되면 측정이 시작됩니다';
+      stopSmoothTimer();
+    } else if(stage === 1){
+      timerDisplay.className='timer-display';
+      stageText.textContent='측정 중 — 다시 감지되면 멈춥니다';
+      startSmoothTimer();
+    } else {
+      timerDisplay.className='timer-display stopped';
+      stageText.textContent='정지 — 한 번 더 감지하면 초기화됩니다';
+      stopSmoothTimer();
+    }
+  }
+
+  function addLap(ms){
+    laps.push(ms);
+    renderLaps();
+  }
+  function renderLaps(){
+    if(!laps.length){ lapList.textContent='아직 기록이 없습니다.'; lapCount.textContent=''; return; }
+    lapCount.textContent = `${laps.length}회`;
+    lapList.innerHTML = laps.map((ms,i) =>
+      `<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border-dim);">
+         <span>${i+1}회</span><span style="color:var(--text); font-weight:500;">${(ms/1000).toFixed(2)}초</span>
+       </div>`).join('');
+  }
+  copyBtn.addEventListener('click', () => {
+    if(!laps.length) return;
+    const text = laps.map((ms,i) => `${i+1}\t${(ms/1000).toFixed(2)}`).join('\n');
+    navigator.clipboard.writeText(text)
+      .then(() => { copyBtn.textContent='복사됨'; setTimeout(()=>copyBtn.textContent='기록 복사',1200); })
+      .catch(()=>{});
+  });
+  clearBtn.addEventListener('click', () => { laps=[]; renderLaps(); });
+
+  // ───────────────────── 단계 적용 ─────────────────────
+  // phase: 1 출발 / 2 정지 / 3 초기화
+  // elapsedMs가 주어지면 장치 시계로 잰 값이므로 그대로 씁니다. 두 센서 판독
+  // 사이에서 측정된 값이라, 이후 브라우저에서 무슨 일이 생기든 기록은 안 변합니다.
+  // echoReset이 false면 장치가 이미 스스로 초기화한 상태라 명령을 되돌려보내지 않습니다.
+  function applyPhase(phase, elapsedMs, echoReset){
+    flashCard(distanceCard); flashCard(heroTimer); buzz(25);
+
+    if(phase === 1){
+      playBeep(980);
+      startTime = performance.now();
+      setStage(1);
+      speak('Start');
+    } else if(phase === 2){
+      playBeep(620);
+      const ms = (elapsedMs !== null && elapsedMs !== undefined)
+        ? elapsedMs : (performance.now() - startTime);
+      timerDisplay.textContent = formatTime(ms);
+      setStage(2);
+      addLap(ms);
+      speak('Stop');
+    } else if(phase === 3){
+      playBeep(440);
+      if(echoReset) sendResetToDevice();
+      setStage(0);
+      speak('Ready');
+    }
+  }
+
+  // 화면이 직접 세는 경로. 수동 버튼, 카메라, 그리고 EVENT_UUID가 없는
+  // 예전 펌웨어가 여기를 씁니다. 대기 시간은 이 경로에만 적용됩니다.
+  function triggerCycle(){
+    const now = performance.now();
+    if(now - lastTriggerAt < triggerCooldownMs) return;
+    lastTriggerAt = now;
+    applyPhase(cycleState === 0 ? 1 : (cycleState === 1 ? 2 : 3), null, true);
+  }
+
+  manualBtn.addEventListener('click', () => { warmupSpeech(); ensureAudioCtx(); triggerCycle(); });
+  resetBtn.addEventListener('click', () => {
+    sendResetToDevice();
+    deviceStartUs = null;
+    setStage(0);
+  });
+
+  // ───────────────────── 감지 소스 선택 ─────────────────────
+  function setSourceMode(mode){
+    sourceMode = mode;
+    ['srcSensor','srcCamera'].forEach(id => {
+      $(id).classList.toggle('active', $(id).dataset.mode === mode);
+    });
+    camSection.classList.toggle('on', mode === 'camera');
+    if(mode === 'sensor') stopCamera();
+  }
+  ['srcSensor','srcCamera'].forEach(id => {
+    $(id).addEventListener('click', () => { warmupSpeech(); ensureAudioCtx(); setSourceMode($(id).dataset.mode); });
+  });
+
+  // ───────────────────────── 카메라 ─────────────────────────
+  // 화면의 세로 띠 안에서 프레임 간 밝기 변화를 세고, 변한 픽셀 비율이
+  // 민감도를 넘으면 통과로 봅니다. 한 번 작동하면 조용한 프레임이
+  // 연속으로 쌓일 때까지 다시 작동하지 않습니다(한 번 지나갈 때 여러 번
+  // 세는 것을 막기 위함).
+  let camStream = null;
+  let camVideo = null;
+  let camCtx = null;
+  let camRaf = null;
+  let prevGray = null;
+  let camArmed = true;
+  let quietFrames = 0;
+  let camFacing = 'environment';
+  let camFrameTimes = [];
+
+  const QUIET_FRAMES_TO_REARM = 8;
+  const PIXEL_DELTA = 26;   // 이 정도 밝기 차이부터 "변했다"로 봅니다
+
+  let camSensitivity = 0.12;
+  let camPos = 0.50;
+  let camWidth = 0.16;
+
+  function updateMotionMark(){
+    motionMark.style.left = Math.min(100, camSensitivity * 100 * 2) + '%';
+  }
+
+  // Dragging and the sliders both write camPos/camWidth, so whichever moves
+  // has to push the other back into agreement or they drift apart.
+  function syncCamUI(){
+    camPosSlider.value = Math.round(camPos * 100);
+    camPosVal.textContent = camPosSlider.value;
+    camWidthSlider.value = Math.round(camWidth * 100);
+    camWidthVal.textContent = camWidthSlider.value;
+  }
+
+  camSensSlider.addEventListener('input', () => {
+    camSensitivity = parseInt(camSensSlider.value,10) / 100;
+    camSensVal.textContent = camSensSlider.value;
+    updateMotionMark();
+  });
+  camPosSlider.addEventListener('input', () => {
+    camPos = parseInt(camPosSlider.value,10) / 100;
+    camPosVal.textContent = camPosSlider.value;
+  });
+  camWidthSlider.addEventListener('input', () => {
+    camWidth = parseInt(camWidthSlider.value,10) / 100;
+    camWidthVal.textContent = camWidthSlider.value;
+  });
+  syncCamUI();
+  updateMotionMark();
+
+  // ── 감지선을 손가락/마우스로 직접 조절 ──
+  // 띠 안쪽을 끌면 위치가, 가장자리를 끌면 폭이 바뀝니다. 띠 바깥을 누르면
+  // 그 자리로 띠가 옮겨옵니다. 좌표는 0~1로 정규화해서 다루므로 캔버스가
+  // CSS로 몇 배 늘어나 있든 그대로 맞습니다.
+  const EDGE_GRAB = 0.045;   // 가장자리로 인식할 범위
+  const MIN_W = 0.04, MAX_W = 0.60;
+  const MIN_P = 0.10, MAX_P = 0.90;
+  let dragMode = null;
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  function normX(e){
+    const r = camCanvas.getBoundingClientRect();
+    return clamp((e.clientX - r.left) / r.width, 0, 1);
+  }
+
+  function hitTest(nx){
+    const half = camWidth / 2;
+    if(Math.abs(nx - (camPos - half)) < EDGE_GRAB) return 'left';
+    if(Math.abs(nx - (camPos + half)) < EDGE_GRAB) return 'right';
+    return 'move';
+  }
+
+  function applyDrag(nx){
+    const half = camWidth / 2;
+    if(dragMode === 'move'){
+      camPos = clamp(nx, MIN_P, MAX_P);
+    } else if(dragMode === 'left'){
+      const right = camPos + half;
+      const left = clamp(nx, 0, right - MIN_W);
+      camWidth = clamp(right - left, MIN_W, MAX_W);
+      camPos = clamp(right - camWidth / 2, MIN_P, MAX_P);
+    } else if(dragMode === 'right'){
+      const left = camPos - half;
+      const right = clamp(nx, left + MIN_W, 1);
+      camWidth = clamp(right - left, MIN_W, MAX_W);
+      camPos = clamp(left + camWidth / 2, MIN_P, MAX_P);
+    }
+    syncCamUI();
+  }
+
+  camCanvas.addEventListener('pointerdown', e => {
+    if(!camStream) return;
+    e.preventDefault();
+    const nx = normX(e);
+    dragMode = hitTest(nx);
+    camCanvas.classList.add('dragging');
+    camCanvas.setPointerCapture(e.pointerId);
+    applyDrag(nx);
+  });
+  camCanvas.addEventListener('pointermove', e => {
+    if(!dragMode) return;
+    e.preventDefault();
+    applyDrag(normX(e));
+  });
+  function endDrag(e){
+    if(!dragMode) return;
+    dragMode = null;
+    camCanvas.classList.remove('dragging');
+    try{ camCanvas.releasePointerCapture(e.pointerId); }catch(_){}
+  }
+  camCanvas.addEventListener('pointerup', endDrag);
+  camCanvas.addEventListener('pointercancel', endDrag);
+
+  async function startCamera(){
+    if(camStream) return;
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      alert('이 브라우저는 카메라를 지원하지 않습니다.');
+      return;
+    }
+    try{
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: camFacing, width:{ideal:640}, height:{ideal:480} },
+        audio: false
+      });
+    }catch(e){
+      alert('카메라를 열 수 없습니다. 브라우저 권한을 확인하세요.\n' + e.message);
+      return;
+    }
+
+    camVideo = document.createElement('video');
+    camVideo.setAttribute('playsinline','');   // 아이폰에서 전체화면으로 튀지 않도록
+    camVideo.muted = true;
+    camVideo.srcObject = camStream;
+    await camVideo.play();
+
+    camCtx = camCanvas.getContext('2d', { willReadFrequently: true });
+    camPlaceholder.style.display = 'none';
+    camCanvas.style.display = 'block';
+    camToggleBtn.textContent = '카메라 끄기';
+
+    prevGray = null; camArmed = true; quietFrames = 0; camFrameTimes = [];
+    warmupSpeech(); ensureAudioCtx();
+    camLoop();
+  }
+
+  function stopCamera(){
+    if(camRaf){ cancelAnimationFrame(camRaf); camRaf = null; }
+    if(camStream){ camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+    if(camVideo){ camVideo.srcObject = null; camVideo = null; }
+    prevGray = null;
+    camPlaceholder.style.display = 'flex';
+    camCanvas.style.display = 'none';
+    camToggleBtn.textContent = '카메라 켜기';
+    camFps.textContent = '';
+    motionFill.style.width = '0%';
+    motionVal.textContent = '0.0%';
+  }
+
+  camToggleBtn.addEventListener('click', () => { camStream ? stopCamera() : startCamera(); });
+  camSwitchBtn.addEventListener('click', async () => {
+    camFacing = (camFacing === 'environment') ? 'user' : 'environment';
+    if(camStream){ stopCamera(); await startCamera(); }
+  });
+
+  function camLoop(){
+    camRaf = requestAnimationFrame(camLoop);
+    if(!camVideo || camVideo.readyState < 2) return;
+
+    const W = camCanvas.width, H = camCanvas.height;
+    camCtx.drawImage(camVideo, 0, 0, W, H);
+
+    const bandW = Math.max(4, Math.round(W * camWidth));
+    const bandX = Math.max(0, Math.min(W - bandW, Math.round(W * camPos - bandW/2)));
+
+    let ratio = 0;
+    try{
+      const img = camCtx.getImageData(bandX, 0, bandW, H).data;
+      const n = bandW * H;
+      const gray = new Uint8Array(n);
+      let changed = 0;
+
+      for(let i = 0, p = 0; p < n; i += 4, p++){
+        const g = (img[i]*299 + img[i+1]*587 + img[i+2]*114) / 1000 | 0;
+        gray[p] = g;
+        if(prevGray && Math.abs(g - prevGray[p]) > PIXEL_DELTA) changed++;
+      }
+      if(prevGray) ratio = changed / n;
+      prevGray = gray;
+    }catch(e){
+      // 다른 출처의 영상이면 getImageData가 막힙니다. 카메라는 해당 없음.
+      return;
+    }
+
+    // 띠와 상태를 화면 위에 그립니다
+    camCtx.save();
+    camCtx.fillStyle = camArmed ? 'rgba(167,139,250,0.16)' : 'rgba(255,45,45,0.16)';
+    camCtx.fillRect(bandX, 0, bandW, H);
+    camCtx.strokeStyle = camArmed ? '#a78bfa' : '#ff2d2d';
+    camCtx.lineWidth = 2;
+    camCtx.strokeRect(bandX+1, 1, bandW-2, H-2);
+
+    // 끌 수 있다는 것을 보여주는 손잡이. 가운데 높이에 짧은 막대 두 개.
+    camCtx.fillStyle = camArmed ? '#a78bfa' : '#ff2d2d';
+    const hy = H/2 - 16, hh = 32;
+    camCtx.fillRect(bandX - 1, hy, 4, hh);
+    camCtx.fillRect(bandX + bandW - 3, hy, 4, hh);
+    camCtx.restore();
+
+    motionFill.style.width = Math.min(100, ratio*100*2) + '%';
+    motionVal.textContent = (ratio*100).toFixed(1) + '%';
+
+    // 프레임 속도 표시 — 이 값이 그대로 타이밍 분해능입니다
+    const t = performance.now();
+    camFrameTimes.push(t);
+    while(camFrameTimes.length && t - camFrameTimes[0] > 1000) camFrameTimes.shift();
+    if(camFrameTimes.length > 2) camFps.textContent = camFrameTimes.length + ' fps';
+
+    if(sourceMode !== 'camera') return;
+
+    if(ratio >= camSensitivity){
+      quietFrames = 0;
+      if(camArmed){
+        camArmed = false;
+        triggerCycle();
+      }
+    } else if(ratio < camSensitivity * 0.5){
+      // 되돌아오는 기준을 낮게 둡니다. 같은 값으로 켜고 끄면
+      // 경계에서 떨리며 여러 번 작동합니다.
+      if(++quietFrames >= QUIET_FRAMES_TO_REARM) camArmed = true;
+    }
+  }
+
+  // ───────────────────────── 블루투스 ─────────────────────────
+  function sendThresholdToDevice(){
+    if(!bleThresholdChar) return;
+    const buf = new Uint8Array(2);
+    buf[0] = threshold & 0xFF;
+    buf[1] = (threshold >> 8) & 0xFF;
+    bleThresholdChar.writeValueWithoutResponse(buf).catch(e => console.error('기준값 전송 실패', e));
+  }
+  function sendResetToDevice(){
+    if(!bleResetChar) return;
+    bleResetChar.writeValueWithoutResponse(new Uint8Array([1])).catch(e => console.error('초기화 전송 실패', e));
+  }
+
+  threshSlider.addEventListener('input', () => {
+    threshold = parseInt(threshSlider.value,10);
+    threshVal.textContent = threshold;
+    clearTimeout(thresholdWriteTimer);
+    thresholdWriteTimer = setTimeout(sendThresholdToDevice, 120);
+  });
+  cooldownSlider.addEventListener('input', () => {
+    triggerCooldownMs = parseInt(cooldownSlider.value,10);
+    cooldownVal.textContent = triggerCooldownMs;
+  });
+  rateSlider.addEventListener('input', () => {
+    ttsRate = parseFloat(rateSlider.value);
+    rateVal.textContent = ttsRate.toFixed(2);
+  });
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    muteBtn.textContent = muted ? '음성 꺼짐' : '음성 켜짐';
+    muteBtn.classList.toggle('muted', muted);
+    if(muted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  });
+  optionsToggle.addEventListener('click', () => {
+    const isOpen = optionsPanel.classList.toggle('open');
+    optionsToggle.classList.toggle('open', isOpen);
+    optionsToggleLabel.textContent = isOpen ? '설정 닫기' : '설정 열기 — 감지 거리 · 음성 · 기록';
+  });
+
+  function showDistance(mm){
+    distanceNum.innerHTML = `${mm} <span class="unit">mm</span>`;
+    const clamped = Math.max(0, Math.min(MAX_RANGE_MM, mm));
+    gaugeFill.style.width = Math.min(100, (1 - clamped/MAX_RANGE_MM) * 100) + '%';
+    gaugeFill.classList.add('broken');
+    lastEventAt = performance.now();
+    updateLastEventAgo();
+    if(!agoIntervalId) agoIntervalId = setInterval(updateLastEventAgo, 500);
+  }
+  function updateLastEventAgo(){
+    if(lastEventAt === null){ lastEventAgo.textContent=''; return; }
+    const sec = (performance.now() - lastEventAt)/1000;
+    lastEventAgo.textContent = sec < 1 ? '방금' : `${sec.toFixed(0)}초 전`;
+  }
+
+  function onDistanceNotify(event){
+    const mm = event.target.value.getUint16(0, true);
+    showDistance(mm);
+    // 장치가 단계를 보내주면 이 알림은 숫자 표시용입니다.
+    if(usingDeviceEvents) return;
+    if(sourceMode === 'sensor') triggerCycle();
+  }
+
+  // 장치 이벤트 8바이트 (리틀 엔디언)
+  //   [0..1] 거리 mm   [2] 단계 1출발 2정지 3초기화
+  //   [3] 순번         [4..7] 장치 micros()
+  function onDeviceEventNotify(event){
+    const dv = event.target.value;
+    if(dv.byteLength < 8) return;
+
+    const mm = dv.getUint16(0, true);
+    const phase = dv.getUint8(2);
+    const seq = dv.getUint8(3);
+    const tUs = dv.getUint32(4, true);
+
+    // 순번을 보면 빠진 알림이 조용히 사라지지 않고 드러납니다.
+    if(lastSeq !== null){
+      const gap = (seq - lastSeq) & 0xFF;
+      if(gap > 1) console.warn(`[BLE] 이벤트 ${gap-1}개 유실`);
+    }
+    lastSeq = seq;
+    showDistance(mm);
+
+    if(sourceMode === 'camera') return;
+
+    let elapsedMs = null;
+    if(phase === 1){
+      deviceStartUs = tUs;
+    } else if(phase === 2 && deviceStartUs !== null){
+      // >>> 0 으로 부호 없는 뺄셈을 만들어 약 71분마다 오는
+      // micros() 순환을 올바로 처리합니다.
+      elapsedMs = (((tUs - deviceStartUs) >>> 0)) / 1000;
+    }
+    applyPhase(phase, elapsedMs, false);
+  }
+
+  function setConnectedUI(connected, name){
+    sessionState.textContent = connected ? `LIVE — ${name || 'Sensor'}` : 'DISCONNECTED';
+    connectBtn.textContent = connected ? 'Connected (tap to disconnect)' : 'Connect Bluetooth';
+    connectBtn.classList.toggle('connected', connected);
+  }
+  function onGattDisconnected(){
+    setConnectedUI(false);
+    bleServer=null; bleChar=null; bleThresholdChar=null; bleResetChar=null; bleEventChar=null;
+    usingDeviceEvents=false; deviceStartUs=null; lastSeq=null;
+    if(agoIntervalId){ clearInterval(agoIntervalId); agoIntervalId=null; }
+  }
+
+  async function connectBLE(){
+    if(!navigator.bluetooth) throw new Error('UNSUPPORTED');
+    if(!window.isSecureContext) throw new Error('INSECURE_CONTEXT');
+
+    // 서비스 UUID로 걸러서 목록에 이 장치만 뜨게 합니다.
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE_UUID] }],
+      optionalServices: [SERVICE_UUID]
+    });
+    bleDevice.addEventListener('gattserverdisconnected', onGattDisconnected);
+    bleServer = await bleDevice.gatt.connect();
+    const service = await bleServer.getPrimaryService(SERVICE_UUID);
+
+    bleChar = await service.getCharacteristic(CHAR_UUID);
+    await bleChar.startNotifications();
+    bleChar.addEventListener('characteristicvaluechanged', onDistanceNotify);
+
+    // 시각이 찍힌 이벤트 특성이 있으면 그쪽을 씁니다.
+    // 예전 펌웨어에는 없으므로 실패해도 오류가 아닙니다.
+    usingDeviceEvents=false; deviceStartUs=null; lastSeq=null;
+    try{
+      bleEventChar = await service.getCharacteristic(EVENT_UUID);
+      await bleEventChar.startNotifications();
+      bleEventChar.addEventListener('characteristicvaluechanged', onDeviceEventNotify);
+      usingDeviceEvents = true;
+      console.info('[BLE] 장치 시각 이벤트 사용');
+    }catch(e){
+      bleEventChar = null;
+      console.info('[BLE] 이벤트 특성 없음 — 화면에서 직접 셉니다');
+    }
+
+    bleThresholdChar = await service.getCharacteristic(THRESHOLD_UUID);
+    sendThresholdToDevice();
+    bleResetChar = await service.getCharacteristic(RESET_UUID);
+    sendResetToDevice();
+
+    setConnectedUI(true, bleDevice.name);
+    setStage(0);
+  }
+
+  connectBtn.addEventListener('click', async () => {
+    warmupSpeech(); ensureAudioCtx();
+    if(bleServer && bleDevice && bleDevice.gatt.connected){
+      bleDevice.gatt.disconnect();
+      setConnectedUI(false);
+      return;
+    }
+    try{
+      await connectBLE();
+    }catch(e){
+      if(e.message === 'UNSUPPORTED'){
+        alert('이 브라우저는 웹 블루투스를 지원하지 않습니다.\n크롬 또는 엣지를 쓰시거나, 카메라 모드를 이용하세요.');
+      } else if(e.message === 'INSECURE_CONTEXT'){
+        alert('https 주소에서만 블루투스를 쓸 수 있습니다.\n파일을 직접 열면(file://) 동작하지 않습니다.');
+      } else if(e.name !== 'NotFoundError'){
+        alert('연결 실패: ' + e.message);
+      }
+    }
+  });
+
+  setStage(0);
+  renderLaps();
+})();
+</script>
+</body>
+</html>
