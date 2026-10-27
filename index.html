@@ -32,9 +32,63 @@
     --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   }
 
-  /* 밝은 체육관·창가에서는 흰 배경이 훨씬 잘 보입니다. 단순히 색을
-     뒤집지 않고, 흰 바탕에서 대비가 충분한 값으로 다시 골랐습니다.
-     특히 노랑과 초록은 흰 배경에서 그냥 쓰면 읽히지 않습니다. */
+  /* 먹 — 순검정 대신 푸른 기가 도는 짙은 회색. 어두운 방에서 순검정
+     바탕에 흰 글씨를 오래 보면 글자 테두리가 번져 보이는데, 바탕을
+     한 단계 밝히면 그 번짐이 줄어듭니다. */
+  [data-theme="ink"]{
+    --bg:#1A1F27; --surface-1:#222933; --surface-2:#2A323E; --surface-3:#343E4B;
+    --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.16);
+
+    --text:#E9EDF3; --text-2:#A6B2C2; --text-3:#7A879B;
+    --accent:#5AADFF; --go:#45D483; --stop:#FF8078; --warn:#FFCB66; --violet:#B6A0FF;
+    --accent-ink:#09131F;
+
+    --glow:rgba(90,173,255,.08);
+    --hero-2:rgba(34,41,51,.55);
+    --hero-sheen:rgba(255,255,255,.045);
+    --scrim:rgba(0,0,0,.55);
+  }
+
+  /* 종이 — 따뜻한 크림. 흰 화면이 눈부신 가장 큰 이유는 밝기와 파란빛
+     두 가지인데, 이 배색은 둘 다 낮춥니다. 밝은 곳에서 오래 보기에
+     가장 편합니다. */
+  [data-theme="paper"]{
+    --bg:#EDE4D3; --surface-1:#F8F2E6; --surface-2:#EFE7D8; --surface-3:#E2D8C4;
+    --line:rgba(92,74,46,.17); --line-strong:rgba(92,74,46,.30);
+
+    --text:#332C21; --text-2:#5E5342; --text-3:#786B56;
+    --accent:#19648C; --go:#2A6A3C; --stop:#A32F23; --warn:#855610; --violet:#59468F;
+    --accent-ink:#FFFFFF;
+
+    --glow:rgba(25,100,140,.07);
+    --hero-2:rgba(239,231,216,.75);
+    --hero-sheen:rgba(92,74,46,.035);
+    --scrim:rgba(50,40,25,.42);
+
+    --shadow-1:0 1px 2px rgba(80,64,40,.10);
+    --shadow-2:0 10px 30px rgba(80,64,40,.14);
+  }
+
+  /* 안개 — 중성 연회색. 흰색이 부담스럽지만 따뜻한 색조도 싫을 때.
+     흰색보다 한 단계 어두워 반사광이 줄어듭니다. */
+  [data-theme="mist"]{
+    --bg:#DFE3E8; --surface-1:#EDF0F4; --surface-2:#E4E9EE; --surface-3:#D2D9E1;
+    --line:rgba(30,41,59,.14); --line-strong:rgba(30,41,59,.24);
+
+    --text:#1B232E; --text-2:#495463; --text-3:#667181;
+    --accent:#155EC6; --go:#0A7345; --stop:#BA251F; --warn:#825409; --violet:#5D27C4;
+    --accent-ink:#FFFFFF;
+
+    --glow:rgba(21,94,198,.07);
+    --hero-2:rgba(228,233,238,.75);
+    --hero-sheen:rgba(30,41,59,.03);
+    --scrim:rgba(20,28,40,.42);
+
+    --shadow-1:0 1px 2px rgba(20,28,40,.09);
+    --shadow-2:0 10px 30px rgba(20,28,40,.13);
+  }
+
+  /* 흰색 — 한낮 운동장처럼 주변이 아주 밝을 때만. 실내에서는 눈부십니다. */
   [data-theme="light"]{
     --bg:#F2F5FA; --surface-1:#FFFFFF; --surface-2:#F4F6FB; --surface-3:#E7EBF3;
     --line:rgba(16,24,40,.10); --line-strong:rgba(16,24,40,.18);
@@ -100,6 +154,30 @@
   .tool-btn:active{ transform:scale(.94); }
   .tool-btn svg{ width:18px; height:18px; display:block; }
 
+  /* ── 배경 고르기 ──────────────────────────── */
+  .theme-wrap{ position:relative; display:inline-flex; }
+  /* 버튼이 헤더 왼쪽 끝에 있어서, 오른쪽 기준으로 펼치면 좁은 화면에서
+     화면 밖으로 잘려 나갑니다. 왼쪽 기준으로 오른쪽으로 펼칩니다. */
+  .theme-pop{ position:absolute; top:46px; left:0; z-index:60; min-width:188px;
+    background:var(--surface-2); border:1px solid var(--line-strong);
+    border-radius:var(--r-md); padding:6px; box-shadow:var(--shadow-2);
+    animation:rise .18s var(--ease); }
+  .theme-pop[hidden]{ display:none; }
+  .theme-opt{ display:flex; align-items:center; gap:10px; width:100%;
+    background:none; border:none; border-radius:var(--r-sm); padding:9px 10px;
+    cursor:pointer; font-family:var(--ui); font-size:13.5px; font-weight:550;
+    color:var(--text-2); text-align:left; }
+  .theme-opt:hover{ background:var(--surface-3); color:var(--text); }
+  .theme-opt[aria-pressed="true"]{ color:var(--text); }
+  .theme-opt[aria-pressed="true"]::after{ content:'✓'; margin-left:auto;
+    color:var(--accent); font-weight:700; }
+  /* 반반 원으로 바탕색과 강조색을 같이 보여줍니다 */
+  .sw{ width:17px; height:17px; border-radius:50%; flex:none;
+    border:1px solid var(--line-strong);
+    background:linear-gradient(135deg, var(--sw-a) 0 50%, var(--sw-b) 50% 100%); }
+  .theme-note{ font-size:11px; color:var(--text-3); padding:4px 10px 6px;
+    line-height:1.5; border-top:1px solid var(--line); margin-top:4px; }
+
   /* ── hero ─────────────────────────────────── */
   .hero{ position:relative; display:flex; flex-direction:column; align-items:center;
     justify-content:center; text-align:center; gap:14px;
@@ -115,7 +193,7 @@
      한 줄이 깨지지 않는 선입니다. */
   .timer-display{ font-family:var(--mono); font-weight:800;
     font-variant-numeric:tabular-nums; font-feature-settings:'tnum' 1;
-    font-size:clamp(64px,16vw,200px); line-height:1.0; letter-spacing:-.03em;
+    font-size:min(max(16vw,54px),200px); line-height:1.0; letter-spacing:-.03em;
     margin:0; color:var(--text); transition:color .3s var(--ease); }
   .timer-display.running{ color:var(--go); }
   .timer-display.stopped{ color:var(--stop); }
@@ -139,15 +217,15 @@
     border:none; border-radius:0; box-shadow:none;
     padding:24px max(16px,env(safe-area-inset-left))
             calc(24px + env(safe-area-inset-bottom)); }
-  body.big .timer-display{ font-size:clamp(88px,24vw,460px); letter-spacing:-.04em; }
+  /* 등폭 숫자는 한 글자가 약 0.56em입니다. 다섯 자리면 2.8em,
+     여덟 자리면 4.5em이라 두 경우의 상한이 다릅니다. vw로만 잡으면
+     세로로 든 폰에서 넘치고, vh를 함께 걸지 않으면 눕혔을 때 넘칩니다.
+     그래서 가로·세로·절대값 중 가장 작은 값을 씁니다. */
+  body.big .timer-display{ font-size:min(30vw,54vh,620px); letter-spacing:-.04em; }
+  body.big .timer-display.wide{ font-size:min(19vw,34vh,420px); }
   body.big .stage-text{ font-size:clamp(14px,2.2vw,22px); }
   body.big #bigExitBtn{ display:inline-flex; }
   body.big .hero .row{ max-width:540px; }
-
-  /* 가로로 눕힌 태블릿에서는 폭이 남으니 더 키웁니다 */
-  @media (orientation:landscape){
-    body.big .timer-display{ font-size:clamp(88px,19vw,520px); }
-  }
 
   /* ── buttons ──────────────────────────────── */
   .row{ display:flex; gap:10px; }
@@ -307,13 +385,29 @@
   <header>
     <h1>SMART <span>GATE</span></h1>
     <div class="header-controls">
-      <button class="tool-btn" id="themeBtn" title="배경 바꾸기" aria-label="배경 바꾸기">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="8.5"/>
-          <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none"/>
-        </svg>
-      </button>
+      <div class="theme-wrap">
+        <button class="tool-btn" id="themeBtn" title="배경 고르기" aria-label="배경 고르기"
+                aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5"/>
+            <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+        <div class="theme-pop" id="themePop" hidden role="menu">
+          <button class="theme-opt" data-theme-key="paper" role="menuitem">
+            <span class="sw" style="--sw-a:#EDE4D3; --sw-b:#19648C"></span>종이</button>
+          <button class="theme-opt" data-theme-key="mist" role="menuitem">
+            <span class="sw" style="--sw-a:#DFE3E8; --sw-b:#155EC6"></span>안개</button>
+          <button class="theme-opt" data-theme-key="ink" role="menuitem">
+            <span class="sw" style="--sw-a:#1A1F27; --sw-b:#5AADFF"></span>먹</button>
+          <button class="theme-opt" data-theme-key="dark" role="menuitem">
+            <span class="sw" style="--sw-a:#0A0B0E; --sw-b:#3B9EFF"></span>검정</button>
+          <button class="theme-opt" data-theme-key="light" role="menuitem">
+            <span class="sw" style="--sw-a:#FFFFFF; --sw-b:#1668DC"></span>흰색</button>
+          <div class="theme-note">실내에서는 종이가 가장 편합니다</div>
+        </div>
+      </div>
       <button class="tool-btn" id="bigBtn" title="크게 보기" aria-label="크게 보기">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -619,14 +713,28 @@
     const m = Math.floor(total/60000);
     const s = Math.floor((total%60000)/1000);
     const cs = Math.floor((total%1000)/10);
+    // 큰 화면에서 00:00.00 은 여덟 자리라 폰 가로폭을 넘어 잘립니다.
+    // 1분 미만이면 분 자리를 떼고 다섯 자리로 줄입니다. 같은 폭에
+    // 글자를 두 배 가까이 키울 수 있고, 달리기 기록은 거의 1분 안쪽입니다.
+    if(document.body.classList.contains('big') && m === 0)
+      return `${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
     return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+  }
+
+  // 자리수에 따라 글자 크기를 바꿔야 해서, 표시는 전부 이 함수를 거칩니다.
+  let lastShownMs = 0;
+  function showTime(ms){
+    lastShownMs = ms;
+    const t = formatTime(ms);
+    timerDisplay.textContent = t;
+    timerDisplay.classList.toggle('wide', t.length > 5);
   }
   function flashCard(el){ if(!el) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
 
   function startSmoothTimer(){
     stopSmoothTimer();
     const tick = () => {
-      timerDisplay.textContent = formatTime(performance.now() - startTime);
+      showTime(performance.now() - startTime);
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
@@ -637,7 +745,7 @@
     cycleState = stage;
     if(stage === 0){
       timerDisplay.className='timer-display';
-      timerDisplay.textContent='00:00.00';
+      showTime(0);
       stageText.textContent='대기 중 — 감지되면 측정이 시작됩니다';
       stopSmoothTimer();
     } else if(stage === 1){
@@ -697,7 +805,7 @@
       playBeep(620);
       const ms = (elapsedMs !== null && elapsedMs !== undefined)
         ? elapsedMs : (performance.now() - startTime);
-      timerDisplay.textContent = formatTime(ms);
+      showTime(ms);
       setStage(2);
       addLap(ms);
       speak('Stop');
@@ -1409,30 +1517,52 @@
     try{ localStorage.setItem(key, val); }catch(e){}
   }
 
+  const themePop = $('themePop');
+  const THEMES = ['dark','ink','paper','mist','light'];
+
   function applyTheme(mode){
-    if(mode === 'light') document.documentElement.setAttribute('data-theme','light');
-    else                 document.documentElement.removeAttribute('data-theme');
-    themeBtn.title = mode === 'light' ? '어두운 배경으로' : '밝은 배경으로';
-    themeBtn.setAttribute('aria-label', themeBtn.title);
+    if(!THEMES.includes(mode)) mode = 'dark';
+    // 'dark'가 :root 기본값이므로 속성을 지우는 쪽이 기본 복귀입니다.
+    if(mode === 'dark') document.documentElement.removeAttribute('data-theme');
+    else                document.documentElement.setAttribute('data-theme', mode);
+    theme = mode;
+    themePop.querySelectorAll('[data-theme-key]').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.themeKey === mode)));
     savePref('gateTheme', mode);
   }
 
   // 저장된 설정이 없으면 기기 설정을 따릅니다. 밝은 모드를 쓰는
-  // 태블릿이면 처음부터 흰 배경으로 열립니다.
+  // 태블릿이면 흰색 대신 '종이'로 엽니다 — 눈부심이 가장 적습니다.
   let theme = loadPref('gateTheme');
-  if(theme !== 'light' && theme !== 'dark'){
+  if(!THEMES.includes(theme)){
     theme = (window.matchMedia &&
-             window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+             window.matchMedia('(prefers-color-scheme: light)').matches) ? 'paper' : 'dark';
   }
   applyTheme(theme);
 
-  themeBtn.addEventListener('click', () => {
-    theme = (theme === 'light') ? 'dark' : 'light';
-    applyTheme(theme);
+  function closeThemePop(){
+    themePop.hidden = true;
+    themeBtn.setAttribute('aria-expanded','false');
+  }
+  themeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    themePop.hidden = !themePop.hidden;
+    themeBtn.setAttribute('aria-expanded', String(!themePop.hidden));
+  });
+  themePop.addEventListener('click', e => {
+    const btn = e.target.closest('[data-theme-key]');
+    if(!btn) return;
+    applyTheme(btn.dataset.themeKey);
+    closeThemePop();
+  });
+  document.addEventListener('click', e => {
+    if(!themePop.hidden && !themePop.contains(e.target)) closeThemePop();
   });
 
   function setBig(on){
     document.body.classList.toggle('big', on);
+    // 자리수 규칙이 모드마다 달라서, 멈춰 있을 때도 다시 그려야 합니다.
+    showTime(lastShownMs);
     if(on){
       // 전체화면이 거부돼도(사용자 동작 없이 호출된 경우 등) 클래스만으로
       // 이미 화면을 다 쓰므로, 실패는 무시합니다.
@@ -1450,11 +1580,16 @@
 
   // 브라우저 자체 전체화면 해제(F11, 뒤로 제스처)와 화면 상태를 맞춥니다.
   document.addEventListener('fullscreenchange', () => {
-    if(!document.fullscreenElement) document.body.classList.remove('big');
+    if(!document.fullscreenElement && document.body.classList.contains('big')){
+      document.body.classList.remove('big');
+      showTime(lastShownMs);
+    }
   });
 
   document.addEventListener('keydown', e => {
-    if(e.key === 'Escape' && document.body.classList.contains('big')) setBig(false);
+    if(e.key !== 'Escape') return;
+    if(!themePop.hidden){ closeThemePop(); return; }
+    if(document.body.classList.contains('big')) setBig(false);
   });
 
   setStage(0);
