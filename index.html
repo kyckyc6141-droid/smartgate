@@ -405,6 +405,16 @@
   // 케이블(Web Serial) 연결 상태. 블루투스와 동시에 쓰지 않습니다 —
   // 두 경로가 같은 통과를 각각 전달하면 한 번 지나간 것이 두 번 세어집니다.
   let serialPort = null, serialReader = null, serialWriter = null;
+
+  // 케이블이 연결됐는데 측정이 안 될 때, 원인을 화면에 알려주기 위한 계수기입니다.
+  // 바이트가 0이면 장치가 USB로 아무것도 안 보내는 것이고, 바이트는 있는데
+  // $ 줄이 0이면 펌웨어가 예전 버전입니다. 둘은 고치는 방법이 다릅니다.
+  let serialBytes = 0, serialLines = 0, serialDollar = 0, serialLastLine = '';
+  // False from the moment the port opens until the gate says it is armed.
+  // Opening the port reboots the ESP32-C3, so "connected" and "ready" are
+  // five seconds apart and the page has to tell them apart.
+  let deviceReady = false;
+  let serialCheckTimer = null;
   let serialAbort = null;
   const transport = () => serialPort ? 'cable' : (bleServer ? 'ble' : null);
   let thresholdWriteTimer = null;
@@ -963,7 +973,32 @@
   // 사람이 읽는 상태 줄은 그대로 흘려보내고 $로 시작하는 줄만 처리합니다.
   function handleDeviceLine(line){
     line = line.trim();
+    if(line) { serialLines++; serialLastLine = line; }
+
+    // Opening the port makes the ESP32-C3 reboot. Its startup banner is the
+    // proof, and the only honest thing to do is show the wait instead of
+    // looking frozen for five seconds.
+    if(line.indexOf('TF LUNA GATE TIMER') >= 0){
+      deviceReady = false;
+      stageText.innerHTML = '<b>장치가 다시 시작되었습니다</b>' +
+        '<br><span style="font-size:12.5px">준비 중입니다 — LED가 파란색이 되면 출발하세요 (약 5초)</span>';
+      return;
+    }
+
     if(!line.startsWith('$')) return;
+    serialDollar++;
+
+    // Sent once at the end of the device's setup. Settings pushed before it
+    // land in a chip that is still booting and are lost, so they go now.
+    if(line === '$B'){
+      deviceReady = true;
+      clearTimeout(serialCheckTimer); serialCheckTimer = null;
+      serialSend('?');
+      sendThresholdToDevice();
+      sendResetToDevice();
+      stageText.textContent = '대기 중 — 감지되면 측정이 시작됩니다';
+      return;
+    }
 
     const p = line.split(',');
 
@@ -995,6 +1030,17 @@
     if(p[0] === '$I' && p.length >= 3){
       setConnectedUI(true, p[1] || 'USB');
       console.info('[케이블] 장치 확인:', p[1], '기준값', p[2] + 'mm');
+
+      // A gate that answers '?' is already running its loop, so it is armed
+      // whether or not we ever saw $B. This covers a port that opened
+      // without rebooting the chip, and firmware predating $B.
+      if(!deviceReady){
+        deviceReady = true;
+        clearTimeout(serialCheckTimer); serialCheckTimer = null;
+        sendThresholdToDevice();
+        sendResetToDevice();
+        stageText.textContent = '대기 중 — 감지되면 측정이 시작됩니다';
+      }
     }
   }
 
@@ -1005,6 +1051,7 @@
         const { value, done } = await serialReader.read();
         if(done) break;
         buf += value;
+        serialBytes += value.length;
         // 한 줄이 두 번에 나뉘어 도착할 수 있으므로 개행 단위로 끊어 처리합니다.
         let i;
         while((i = buf.indexOf('\n')) >= 0){
@@ -1025,7 +1072,18 @@
     const port = await navigator.serial.requestPort();
     await port.open({ baudRate: 115200 });
 
+    // On the ESP32-C3 the USB-Serial-JTAG peripheral is held in reset while
+    // DTR is low and RTS is high. Clearing DTR first walks through exactly
+    // that state and reboots the chip; clearing RTS first passes through
+    // (RTS low, DTR high), which only touches a boot strap. Two separate
+    // calls, RTS first, so the browser cannot reorder them.
+    try{
+      await port.setSignals({ requestToSend: false });
+      await port.setSignals({ dataTerminalReady: false });
+    }catch(e){ console.info('[케이블] 제어선 설정 생략', e); }
+
     serialPort = port;
+    deviceReady = false;
     deviceStartUs = null; lastSeq = null;
 
     const dec = new TextDecoderStream();
@@ -1038,15 +1096,53 @@
     serialWriter = enc.writable.getWriter();
 
     readSerialLoop();
+    serialBytes = serialLines = serialDollar = 0; serialLastLine = '';
+    clearTimeout(serialCheckTimer);
+
+    // The device needs about five seconds to boot after the port opens, so
+    // the fault check has to outlast that or it accuses a perfectly healthy
+    // gate of being silent. $B cancels this timer the moment it arrives.
+    serialCheckTimer = setTimeout(diagnoseSerial, 9000);
 
     setConnectedUI(true, null);
     setStage(0);
-    serialSend('?');              // 장치 확인
+    stageText.textContent = '장치 준비 중…';
+
+    // No settings are pushed here on purpose. The port opening rebooted the
+    // chip, so anything sent now is swallowed. handleDeviceLine sends them
+    // when $B says the gate is actually listening. The one exception is a
+    // gate that was already up and never rebooted: it answers '?' and the
+    // '$I' reply marks it ready too.
+    serialSend('?');
+  }
+
+  // 4초면 하트비트가 여러 번 지나갑니다. 그때까지 아무것도 안 왔다면
+  // 기다려봐야 달라지지 않으므로, 무엇이 잘못됐는지 바로 알려줍니다.
+  function diagnoseSerial(){
+    if(!serialPort) return;
+    console.info(`[케이블] 수신 ${serialBytes}바이트 / ${serialLines}줄 / $줄 ${serialDollar}`,
+                 serialLastLine ? `마지막: ${serialLastLine}` : '');
+
+    if(serialBytes === 0){
+      stageText.innerHTML = '<b style="color:var(--warn)">포트는 열렸지만 장치가 아무것도 보내지 않습니다</b>' +
+        '<br><span style="font-size:12.5px">아두이노 IDE에서 도구 → USB CDC On Boot 를 Enabled 로 바꾸고 다시 업로드하세요</span>';
+      return;
+    }
+    if(serialDollar === 0){
+      stageText.innerHTML = '<b style="color:var(--warn)">펌웨어가 이전 버전입니다</b>' +
+        '<br><span style="font-size:12.5px">TFLuna_Gate.ino 를 다시 업로드하세요. 케이블로 보내는 줄이 없습니다.</span>';
+      return;
+    }
+    // Lines are arriving but neither $B nor $I did. Nine seconds is well past
+    // a normal boot, so treat the gate as live rather than leaving the page
+    // stuck on "준비 중" forever.
+    deviceReady = true;
     sendThresholdToDevice();
-    sendResetToDevice();
+    stageText.textContent = '대기 중 — 감지되면 측정이 시작됩니다';
   }
 
   async function disconnectSerial(){
+    clearTimeout(serialCheckTimer); serialCheckTimer = null;
     const port = serialPort;
     serialPort = null;
     try{ if(serialReader){ await serialReader.cancel(); serialReader.releaseLock(); } }catch(e){}
