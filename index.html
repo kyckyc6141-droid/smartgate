@@ -14,6 +14,14 @@
 
     --text:#F4F6F8; --text-2:#9BA5B4; --text-3:#646E7D;
     --accent:#3B9EFF; --go:#30D158; --stop:#FF453A; --warn:#FFC53D; --violet:#A78BFA;
+    --accent-ink:#06121F;
+
+    /* 테마에 따라 달라지는 값들. 색을 코드에 직접 박아두면 흰 배경에서
+       보이지 않게 되므로, 전부 변수로 뺐습니다. */
+    --glow:rgba(59,158,255,.10);
+    --hero-2:rgba(19,21,25,.55);
+    --hero-sheen:rgba(255,255,255,.05);
+    --scrim:rgba(0,0,0,.6);
 
     --r-sm:10px; --r-md:14px; --r-lg:20px; --r-pill:999px;
     --shadow-1:0 1px 2px rgba(0,0,0,.4);
@@ -23,14 +31,35 @@
     --ui:-apple-system,BlinkMacSystemFont,'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
     --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   }
+
+  /* 밝은 체육관·창가에서는 흰 배경이 훨씬 잘 보입니다. 단순히 색을
+     뒤집지 않고, 흰 바탕에서 대비가 충분한 값으로 다시 골랐습니다.
+     특히 노랑과 초록은 흰 배경에서 그냥 쓰면 읽히지 않습니다. */
+  [data-theme="light"]{
+    --bg:#F2F5FA; --surface-1:#FFFFFF; --surface-2:#F4F6FB; --surface-3:#E7EBF3;
+    --line:rgba(16,24,40,.10); --line-strong:rgba(16,24,40,.18);
+
+    --text:#0F172A; --text-2:#4A5568; --text-3:#7C8699;
+    --accent:#1668DC; --go:#07804A; --stop:#CC1F1A; --warn:#92610A; --violet:#6D28D9;
+    --accent-ink:#FFFFFF;
+
+    --glow:rgba(22,104,220,.08);
+    --hero-2:rgba(244,246,251,.75);
+    --hero-sheen:rgba(16,24,40,.03);
+    --scrim:rgba(16,24,40,.45);
+
+    --shadow-1:0 1px 2px rgba(16,24,40,.08);
+    --shadow-2:0 10px 30px rgba(16,24,40,.10);
+  }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{ margin:0; padding:0; min-height:100%; background:var(--bg); color:var(--text);
     font-family:var(--ui); -webkit-font-smoothing:antialiased; }
   body{ display:flex; justify-content:center;
     padding:max(20px,env(safe-area-inset-top)) 16px calc(48px + env(safe-area-inset-bottom));
     background:
-      radial-gradient(1100px 520px at 50% -18%, rgba(59,158,255,.10), transparent 62%),
-      var(--bg); }
+      radial-gradient(1100px 520px at 50% -18%, var(--glow), transparent 62%),
+      var(--bg);
+    transition:background-color .25s var(--ease), color .25s var(--ease); }
   .app{ width:100%; max-width:1040px; }
 
   /* ── header ───────────────────────────────── */
@@ -52,7 +81,7 @@
   .session-status.live::before{ background:var(--go); box-shadow:0 0 0 3px rgba(48,209,88,.18); }
 
   .connect-btn{ font-family:var(--ui); font-weight:600; font-size:14px; letter-spacing:-.1px;
-    background:var(--accent); color:#06121F; border:none; padding:11px 20px;
+    background:var(--accent); color:var(--accent-ink); border:none; padding:11px 20px;
     border-radius:var(--r-pill); cursor:pointer; box-shadow:var(--shadow-1);
     transition:transform .14s var(--ease), filter .14s var(--ease); }
   .connect-btn:hover{ filter:brightness(1.07); }
@@ -60,19 +89,33 @@
   .connect-btn.connected{ background:var(--surface-2); color:var(--text-2);
     box-shadow:inset 0 0 0 1px var(--line-strong); }
 
+  /* 테마 전환과 크게 보기. 글자 없는 정사각 버튼으로 둬서 헤더가
+     좁은 화면에서 줄바꿈되지 않게 했습니다. */
+  .tool-btn{ width:38px; height:38px; flex:none; display:inline-flex;
+    align-items:center; justify-content:center; background:var(--surface-1);
+    border:1px solid var(--line); border-radius:var(--r-pill);
+    color:var(--text-2); cursor:pointer; padding:0;
+    transition:all .15s var(--ease); }
+  .tool-btn:hover{ border-color:var(--line-strong); color:var(--text); }
+  .tool-btn:active{ transform:scale(.94); }
+  .tool-btn svg{ width:18px; height:18px; display:block; }
+
   /* ── hero ─────────────────────────────────── */
   .hero{ position:relative; display:flex; flex-direction:column; align-items:center;
     justify-content:center; text-align:center; gap:14px;
-    background:linear-gradient(180deg,var(--surface-1),rgba(19,21,25,.55));
+    background:linear-gradient(180deg,var(--surface-1),var(--hero-2));
     border:1px solid var(--line); border-radius:28px;
     padding:clamp(36px,7vw,68px) 24px clamp(28px,4.5vw,44px);
     box-shadow:var(--shadow-2); overflow:hidden; }
   .hero::after{ content:''; position:absolute; inset:0; pointer-events:none;
-    background:radial-gradient(60% 70% at 50% 0%, rgba(255,255,255,.05), transparent 70%); }
+    background:radial-gradient(60% 70% at 50% 0%, var(--hero-sheen), transparent 70%); }
 
+  /* 운동장·체육관에서는 몇 미터 떨어져서 봅니다. 16vw는 폰을 세워
+     들었을 때 화면 폭을 거의 채우는 크기이고, 상한 200px은 노트북에서
+     한 줄이 깨지지 않는 선입니다. */
   .timer-display{ font-family:var(--mono); font-weight:800;
     font-variant-numeric:tabular-nums; font-feature-settings:'tnum' 1;
-    font-size:clamp(52px,12.2vw,146px); line-height:1.0; letter-spacing:-.02em;
+    font-size:clamp(64px,16vw,200px); line-height:1.0; letter-spacing:-.03em;
     margin:0; color:var(--text); transition:color .3s var(--ease); }
   .timer-display.running{ color:var(--go); }
   .timer-display.stopped{ color:var(--stop); }
@@ -80,6 +123,31 @@
   .stage-text{ font-size:clamp(13px,1.7vw,15px); color:var(--text-2); margin:0; }
 
   .hero .row{ width:100%; max-width:420px; margin-top:6px; }
+
+  /* ── 크게 보기 ────────────────────────────── */
+  /* 태블릿을 세워두고 학생이 멀리서 보는 상황용. 시간 외의 모든 것을
+     치우고 화면을 전부 숫자에 씁니다. 수동·초기화는 남겨둡니다. */
+  #bigExitBtn{ display:none; }
+  body.big{ padding:0; align-items:stretch; }
+  body.big .app{ max-width:none; display:flex; flex-direction:column; }
+  body.big header,
+  body.big .source-bar,
+  body.big .cam-section,
+  body.big .options-toggle,
+  body.big .options-panel{ display:none !important; }
+  body.big .hero{ flex:1; min-height:100vh; min-height:100dvh;
+    border:none; border-radius:0; box-shadow:none;
+    padding:24px max(16px,env(safe-area-inset-left))
+            calc(24px + env(safe-area-inset-bottom)); }
+  body.big .timer-display{ font-size:clamp(88px,24vw,460px); letter-spacing:-.04em; }
+  body.big .stage-text{ font-size:clamp(14px,2.2vw,22px); }
+  body.big #bigExitBtn{ display:inline-flex; }
+  body.big .hero .row{ max-width:540px; }
+
+  /* 가로로 눕힌 태블릿에서는 폭이 남으니 더 키웁니다 */
+  @media (orientation:landscape){
+    body.big .timer-display{ font-size:clamp(88px,19vw,520px); }
+  }
 
   /* ── buttons ──────────────────────────────── */
   .row{ display:flex; gap:10px; }
@@ -169,9 +237,27 @@
   .note{ font-size:12.5px; color:var(--text-3); line-height:1.75; margin-top:12px; }
   .note b{ color:var(--text-2); font-weight:600; }
 
+  /* ── 기록 목록 ────────────────────────────── */
+  /* 전에는 설명문과 같은 12.5px 회색이라 읽기 어려웠습니다. 초 단위
+     숫자를 본문급으로 키우고 등폭 숫자로 맞춰 자리수가 흔들리지
+     않게 했습니다. */
+  .lap-row{ display:flex; align-items:center; justify-content:space-between;
+    gap:12px; padding:11px 2px; border-bottom:1px solid var(--line); }
+  .lap-row:last-child{ border-bottom:none; }
+  .lap-no{ font-size:13px; color:var(--text-3); font-weight:500; }
+  .lap-time{ font-family:var(--mono); font-weight:700; font-size:26px;
+    font-variant-numeric:tabular-nums; letter-spacing:-.02em; color:var(--text); }
+  .lap-time .unit{ font-size:14px; color:var(--text-3); font-weight:500;
+    margin-left:3px; }
+  /* 가장 빠른 기록에 표시를 답니다 — 수업에서 제일 많이 찾는 값입니다 */
+  .lap-row.best .lap-time{ color:var(--go); }
+  .lap-best-tag{ font-size:10.5px; font-weight:700; letter-spacing:.04em;
+    color:var(--go); border:1px solid currentColor; border-radius:var(--r-pill);
+    padding:2px 7px; margin-left:8px; vertical-align:middle; }
+
   /* ── connect sheet ────────────────────────── */
   .sheet-backdrop{ display:none; position:fixed; inset:0; z-index:50;
-    background:rgba(0,0,0,.6); -webkit-backdrop-filter:blur(8px);
+    background:var(--scrim); -webkit-backdrop-filter:blur(8px);
     backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:16px; }
   .sheet-backdrop.open{ display:flex; animation:fade .2s var(--ease); }
   .sheet{ width:100%; max-width:430px; background:var(--surface-2);
@@ -221,6 +307,19 @@
   <header>
     <h1>SMART <span>GATE</span></h1>
     <div class="header-controls">
+      <button class="tool-btn" id="themeBtn" title="배경 바꾸기" aria-label="배경 바꾸기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.5"/>
+          <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+      <button class="tool-btn" id="bigBtn" title="크게 보기" aria-label="크게 보기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"/>
+        </svg>
+      </button>
       <span class="session-status" id="sessionState">연결 안 됨</span>
       <button class="connect-btn compact" id="connectBtn">연결하기</button>
     </div>
@@ -232,6 +331,7 @@
     <div class="row">
       <button class="icon-btn primary" id="manualBtn">수동 작동</button>
       <button class="icon-btn" id="resetBtn">초기화</button>
+      <button class="icon-btn" id="bigExitBtn">작게</button>
     </div>
   </div>
 
@@ -558,10 +658,18 @@
   function renderLaps(){
     if(!laps.length){ lapList.textContent='아직 기록이 없습니다.'; lapCount.textContent=''; return; }
     lapCount.textContent = `${laps.length}회`;
-    lapList.innerHTML = laps.map((ms,i) =>
-      `<div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--line);">
-         <span>${i+1}회</span><span style="color:var(--text); font-weight:500;">${(ms/1000).toFixed(2)}초</span>
-       </div>`).join('');
+
+    // 최솟값을 미리 구해 그 줄에만 표시를 답니다. 동타가 있으면
+    // 둘 다 표시되는데, 그게 맞습니다.
+    const best = Math.min(...laps);
+
+    lapList.innerHTML = laps.map((ms,i) => {
+      const isBest = ms === best && laps.length > 1;
+      return `<div class="lap-row${isBest ? ' best' : ''}">` +
+             `<span class="lap-no">${i+1}회${isBest ? '<span class="lap-best-tag">최고</span>' : ''}</span>` +
+             `<span class="lap-time">${(ms/1000).toFixed(2)}<span class="unit">초</span></span>` +
+             `</div>`;
+    }).join('');
   }
   copyBtn.addEventListener('click', () => {
     if(!laps.length) return;
@@ -1285,6 +1393,68 @@
   connectSheet.addEventListener('click', e => { if(e.target === connectSheet) closeSheet(); });
   document.addEventListener('keydown', e => {
     if(e.key === 'Escape' && connectSheet.classList.contains('open')) closeSheet();
+  });
+
+  // ───────────────────── 배경 / 크게 보기 ─────────────────────
+
+  const themeBtn = $('themeBtn'), bigBtn = $('bigBtn'), bigExitBtn = $('bigExitBtn');
+
+  // localStorage는 파일을 직접 열었을 때(file://)나 시크릿 창에서
+  // 막히거나 예외를 던집니다. 설정을 못 저장해도 앱은 돌아가야 하므로
+  // 읽기·쓰기 양쪽을 감쌉니다.
+  function loadPref(key){
+    try{ return localStorage.getItem(key); }catch(e){ return null; }
+  }
+  function savePref(key, val){
+    try{ localStorage.setItem(key, val); }catch(e){}
+  }
+
+  function applyTheme(mode){
+    if(mode === 'light') document.documentElement.setAttribute('data-theme','light');
+    else                 document.documentElement.removeAttribute('data-theme');
+    themeBtn.title = mode === 'light' ? '어두운 배경으로' : '밝은 배경으로';
+    themeBtn.setAttribute('aria-label', themeBtn.title);
+    savePref('gateTheme', mode);
+  }
+
+  // 저장된 설정이 없으면 기기 설정을 따릅니다. 밝은 모드를 쓰는
+  // 태블릿이면 처음부터 흰 배경으로 열립니다.
+  let theme = loadPref('gateTheme');
+  if(theme !== 'light' && theme !== 'dark'){
+    theme = (window.matchMedia &&
+             window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+  }
+  applyTheme(theme);
+
+  themeBtn.addEventListener('click', () => {
+    theme = (theme === 'light') ? 'dark' : 'light';
+    applyTheme(theme);
+  });
+
+  function setBig(on){
+    document.body.classList.toggle('big', on);
+    if(on){
+      // 전체화면이 거부돼도(사용자 동작 없이 호출된 경우 등) 클래스만으로
+      // 이미 화면을 다 쓰므로, 실패는 무시합니다.
+      const el = document.documentElement;
+      if(el.requestFullscreen) el.requestFullscreen().catch(()=>{});
+      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    } else {
+      if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+      else if(document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+  }
+
+  bigBtn.addEventListener('click', () => setBig(true));
+  bigExitBtn.addEventListener('click', () => setBig(false));
+
+  // 브라우저 자체 전체화면 해제(F11, 뒤로 제스처)와 화면 상태를 맞춥니다.
+  document.addEventListener('fullscreenchange', () => {
+    if(!document.fullscreenElement) document.body.classList.remove('big');
+  });
+
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && document.body.classList.contains('big')) setBig(false);
   });
 
   setStage(0);
